@@ -8,10 +8,19 @@ const path = require("path");
 
 const page = path.join(__dirname, "skjar_player.html");
 
+// The shared build (make_share.py) writes the page in here, so a frozen
+// device needs no file next to it. Left null, the page is read from disk.
+const INLINE_PAGE = null;
+
 const server = http.createServer((req, res) => {
     if (req.url !== "/" && ! req.url.startsWith("/?")) {
         res.writeHead(404);
         res.end();
+        return;
+    }
+    if (INLINE_PAGE !== null) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(INLINE_PAGE);
         return;
     }
     fs.readFile(page, (err, data) => {

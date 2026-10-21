@@ -1,10 +1,13 @@
-# Skjár for Max for Live
+# Skjár
 
 A YouTube video in an Ableton Live device, with **its sound in the track**, following Live's transport. Paste a link,
 set a cue, press play in Live: the video starts from the cue, and what it plays comes out of the device like any other
 audio, so it can be heard, metered, routed and recorded in Live.
 
 Needs Live 12.2 or later with Max for Live (Max 9's `jweb~`).
+
+**[Download the latest release](https://github.com/SungamMagnus/skjar/releases/latest)**: one self-contained `.amxd`.
+Drag it onto an audio track.
 
 | | |
 |---|---|
@@ -28,12 +31,15 @@ button in the device's title bar).
 | `devices/skjar_player.html` | the YouTube IFrame API, driven through `window.max` |
 | `devices/skjar.js` | `js`: reads the transport from `plugsync~` and tells the page to start, park or seek |
 | `make_device.py` | builds the `.amxd` (its `Patcher` class is Nóta's) |
+| `make_share.py` | builds the release: the device frozen with its scripts, the page written into the server, zipped |
+| `freeze.py` | Nóta's command-line Freeze Device |
 
-`jweb~` is Chromium, and puts out whatever sound the page makes, which is what makes this possible at all: the VST
-version's WebKit view will not give the sound up. The page is served over http rather than read from disk because the
+`jweb~` is Chromium, and puts out whatever sound the page makes, which is what makes this possible at all. Skjár
+started as a VST3/AU (tag `vst-0.1.0`), whose WebKit view would not give the sound up. The page is served over http rather than read from disk because the
 YouTube embed refuses to play (error 153) in a page with no origin.
 
-Keep the four files in `devices/` together: the device finds its scripts next to itself.
+Keep the four files in `devices/` together: the device finds its scripts next to itself. The release device
+(`python3 make_share.py` → `dist/Skjar-for-Live.zip`) carries them inside it instead.
 
 ## Tests
 
