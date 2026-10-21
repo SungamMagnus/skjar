@@ -1,0 +1,91 @@
+<!doctype html>
+<!--
+  Skjár's player page. jweb~ loads it, and everything else happens in Max:
+  messages in through window.max.bindInlet, state out through window.max.outlet.
+
+  It is served from localhost by skjar_server.js rather than read from disk:
+  the YouTube embed refuses to play (error 153) for a page with no origin.
+
+    ?v=<video id>&t=<seconds>   what to show first; `load` replaces it later
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skjár player</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1c1c1a; overflow: hidden; }
+  #player { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #empty {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font: 11px Menlo, monospace; letter-spacing: .2em; color: rgba(240, 236, 226, .35);
+  }
+</style>
+</head>
+<body>
+<div id="empty">S K J Á R</div>
+<div id="player"></div>
+<script>
+  const params = new URLSearchParams(location.search);
+  const max = window.max;
+  let player = null, ready = false, lastError = 0;
+
+  // Seeking a player that has not started yet starts it. A park is a seek
+  // that must not, so the pause is held until the player gets that far.
+  let holdPaused = false;
+
+  function out(...args) { if (max) max.outlet(...args); }
+
+  function create(id, start) {
+    document.getElementById('empty').style.display = 'none';
+    player = new YT.Player('player', {
+      width: '100%', height: '100%', videoId: id,
+      playerVars: { playsinline: 1, rel: 0, start: Math.floor(start || 0), origin: location.origin },
+      events: {
+        onReady: () => { ready = true; out('video', player.getVideoData().title || ''); },
+        onStateChange: (e) => {
+          if (holdPaused && e.data === YT.PlayerState.PLAYING) { holdPaused = false; player.pauseVideo(); }
+          if (e.data === YT.PlayerState.CUED || e.data === YT.PlayerState.PLAYING)
+            out('video', player.getVideoData().title || '');
+        },
+        onError: (e) => { lastError = e.data; }
+      }
+    });
+  }
+
+  function load(id, start) {
+    lastError = 0;
+    if (! player) { pending = [id, start]; if (window.YT && YT.Player) create(id, start); return; }
+    if (! ready) return;
+    holdPaused = true;   // show the first frame, do not start it
+    player.loadVideoById({ videoId: id, startSeconds: start || 0 });
+  }
+
+  let pending = params.get('v') ? [params.get('v'), parseFloat(params.get('t') || '0')] : null;
+  window.onYouTubeIframeAPIReady = () => { if (pending) create(pending[0], pending[1]); };
+
+  function park(t) {
+    if (! ready) return;
+    holdPaused = player.getPlayerState() !== YT.PlayerState.PAUSED;
+    player.seekTo(t, true);
+    player.pauseVideo();
+  }
+
+  if (max) {
+    max.bindInlet('load',  (id, t) => load(String(id), +t || 0));
+    max.bindInlet('start', (t) => { if (ready) { holdPaused = false; player.seekTo(+t, true); player.playVideo(); } });
+    max.bindInlet('park',  (t) => park(+t));
+    max.bindInlet('seek',  (t) => { if (ready) player.seekTo(+t, true); });
+    max.bindInlet('play',  () => { if (ready) { holdPaused = false; player.playVideo(); } });
+  }
+
+  // The state, ten times a second: ready, YouTube's state number, time,
+  // duration, error. Max does the following; the page only reports.
+  setInterval(() => {
+    if (! ready) { out('state', 0, -1, 0, 0, lastError); return; }
+    out('state', 1, player.getPlayerState(), player.getCurrentTime(), player.getDuration() || 0, lastError);
+  }, 100);
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
